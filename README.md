@@ -27,6 +27,9 @@ The n8n workflow contains the following steps:
 6. **Code Node** – Extracts `Title` and `Summary` from LLM response
 7. **Google Sheets Node** – Appends or updates rows in a connected Google Sheet
 
+  ![image](https://github.com/user-attachments/assets/d27e1ebc-7968-4baf-8968-41db087ed025)
+
+
 ---
 
 ## 🔧 Setup Instructions
