@@ -1,0 +1,441 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1040,
+        -200
+      ],
+      "id": "ff90788b-2600-4c69-8ddd-5976914babcb",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss",
+        "options": {
+          "ignoreSSL": false
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        -820,
+        -200
+      ],
+      "id": "39354e5a-46ef-4b03-85bf-24c99da5c06c",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Function node: Decodes Google News RSS article links to original URLs\n\nreturn items.map(item => {\n  const input = item.json;\n  let url = input.link;\n\n  try {\n    // Only process Google News article links\n    const match = url.match(/\\/articles\\/([A-Za-z0-9\\-_]+)/);\n    if (match) {\n      // Extract base64 part from the URL\n      const base64part = match[1];\n      // Decode from base64 (URL-safe)\n      let decoded = Buffer.from(base64part, 'base64').toString('utf-8');\n      // Remove possible binary prefix/suffix (common in Google encoding)\n      decoded = decoded.replace(/^[\\x08\\x13\\x22]+/, '').replace(/[\\xd2\\x01\\x00]+$/, '');\n      // Find the first http/https URL in the decoded string\n      const urlMatch = decoded.match(/https?:\\/\\/[^\\s\"]+/);\n      if (urlMatch) {\n        url = urlMatch[0];\n      }\n    }\n  } catch (e) {\n    // If any error, keep the original link\n    url = input.link;\n  }\n\n  // Output original item with an added 'cleanUrl' property\n  return {\n    json: {\n      ...input,\n      cleanUrl: url\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        -200
+      ],
+      "id": "14dac351-9bf8-46f3-a55d-106e0e9692f1",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.content }}\n\nExtract the article title from the metadata: \"{{ $json.title }}\".\nThen summarize the article in 7–10 lines. Respond in the following format:\n\nTitle: [The Title Here]\nSummary: [The Summary Here]",
+        "hasOutputParser": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        -380,
+        -200
+      ],
+      "id": "12c84ccb-abed-48d0-850c-e249e1bcc5c9",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/learnlm-1.5-pro-experimental",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -292,
+        20
+      ],
+      "id": "d398dd29-cf31-4144-8ea2-2f267d500833",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "y7ZEpO4Bp6sFmVEC",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const output = item.json.text;\n  const titleMatch = output.match(/Title:\\s*(.*)/);\n  const summaryMatch = output.match(/Summary:\\s*([\\s\\S]*)/);\n  \n  return {\n    json: {\n      title: titleMatch ? titleMatch[1] : '',\n      summary: summaryMatch ? summaryMatch[1].trim() : ''\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4,
+        -200
+      ],
+      "id": "82d09b14-f792-4de8-83e2-e7c7fc3b3999",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1YZ9oE3qiu8QZQ4mmxd_4kIYZsSpq4xIlH-OF__61KH8",
+          "mode": "list",
+          "cachedResultName": "Summary",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1YZ9oE3qiu8QZQ4mmxd_4kIYZsSpq4xIlH-OF__61KH8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1YZ9oE3qiu8QZQ4mmxd_4kIYZsSpq4xIlH-OF__61KH8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title of the Article": "={{ $json.title }}",
+            "                                                       Summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [
+            "Title of the Article"
+          ],
+          "schema": [
+            {
+              "id": "Title of the Article",
+              "displayName": "Title of the Article",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "                                                       Summary",
+              "displayName": "                                                       Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        216,
+        -200
+      ],
+      "id": "11d98a2d-8dbd-4355-bf65-77e1ecfe00ec",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ypa9gE9R33arvW6Y",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Basic LLM Chain": [
+      {
+        "json": {
+          "text": "Title: Trump announces trade deal with the U.K., first since his tariffs sent markets reeling\n\nSummary: President Trump has announced a trade deal with the United Kingdom, marking the first such agreement since his administration imposed tariffs that disrupted global markets. The deal aims to reduce tariffs on certain British goods, including Scotch whisky, and ease trade barriers between the two countries. While details remain limited, the agreement is expected to cover a range of sectors, potentially including agriculture and manufacturing.  This deal comes as both the U.S. and the U.K. face economic uncertainty, partly due to ongoing trade disputes and the impact of the pandemic. The agreement is likely to be touted by Trump as a win for American workers and businesses. However, the actual economic benefits and long-term implications of the deal are yet to be fully analyzed.  It's also unclear how the agreement might affect the U.K.'s ongoing trade negotiations with the European Union post-Brexit.  The deal could face scrutiny from Congress and might be revisited by the next presidential administration."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: No new pope elected yet after black smoke pours out of Sistine Chapel's chimney\n\nSummary: The papal conclave to elect a successor to Pope Benedict XVI has not yet resulted in a new pope. Black smoke emerged from the Sistine Chapel's chimney after two rounds of voting on Tuesday, signaling that no candidate received the required two-thirds majority. This indicates a divided and discerning group of cardinals who are potentially considering a less obvious candidate. The process involves 115 cardinal electors who are sequestered in the Vatican until a new pope is chosen.  The smoke color, black for unsuccessful votes and white for a successful election, is produced by adding chemicals to the burned ballots. Historically, conclaves have lasted anywhere from a few days to several weeks. The current conclave is notable for its relatively quick start after Pope Benedict's resignation. While speculation swirls around potential frontrunners, the black smoke confirms the decision-making process is still underway and a consensus is yet to be reached."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Pakistani drone attacks ‘neutralised’, says India, as skirmishes escalate\n\nSummary: Tensions between India and Pakistan have escalated following a series of cross-border skirmishes. India claims to have neutralized Pakistani drone attacks, while Pakistan accuses India of \"serious provocation\" and claims to have downed Indian drones.  Both nuclear-armed neighbors are claiming victory after the recent clashes, raising concerns about further escalation. The details of the incidents remain unclear, with conflicting reports from each side.  One reported incident involves an Indian airstrike on an anti-aircraft site in Lahore, Pakistan.  Experts are questioning whether cooler heads will prevail and de-escalate the situation or if the conflict will continue to intensify. The skirmishes come amid a long history of tension and conflict between the two countries.  The international community is watching the situation closely, urging restraint from both sides to avoid a larger conflict."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Trump nominates Dr. Casey Means, wellness influencer close to RFK Jr., for surgeon general\n\nSummary: Former President Donald Trump has nominated Dr. Casey Means for the position of Surgeon General. Means is a Stanford-trained osteopathic physician and a prominent figure in the wellness community, known for her advocacy of holistic health practices and her online platform, Level Health. She has expressed controversial views on vaccines and has close ties to Robert F. Kennedy Jr., a known vaccine skeptic. This nomination has sparked debate due to Means' lack of traditional public health experience and her alignment with unconventional medical viewpoints.  Her nomination follows the withdrawal of Joseph Ladapo, Florida's Surgeon General, from consideration for the same role. The choice of Means signals a potential shift in focus towards alternative medicine and wellness within the public health sphere, should she be confirmed.  Means' emphasis on lifestyle interventions and preventative care could represent a departure from previous Surgeon Generals' priorities. The nomination has drawn criticism from some medical professionals concerned about her qualifications and stance on established public health measures."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: The $200 Billion Gamble: Bill Gates’s Plan to Wind Down His Foundation\n\nSummary: Bill Gates plans to give away virtually all his wealth, estimated at $200 billion, within the next 25 years, accelerating the timeline for the Gates Foundation's closure to roughly 2045. He aims to increase the foundation's annual payout from $6 billion to $9 billion by 2026, tackling global health and development issues like poverty, climate change, and pandemics.  This significant increase is a \"bet\" on the foundation's ability to solve big problems faster.  While his personal wealth will eventually be depleted, Gates expects returns on the foundation's investments to sustain its work for a limited time.  He is stepping down from both Microsoft and Berkshire Hathaway boards to focus on philanthropy. This move reflects his belief in urgent action and the need for substantial, time-bound investment to address global challenges. Despite the foundation's eventual closure, Gates hopes its work will inspire other philanthropists and governments to continue tackling these issues."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Economists warn Trump's research cuts could have dire consequences for GDP\n\nSummary: The article discusses the potential negative impact of the Trump administration's proposed cuts to federal research funding on the U.S. economy. Economists warn that reducing investments in scientific research could significantly hinder innovation and long-term economic growth. Federal research funding often supports basic scientific discoveries that later translate into technological advancements and new industries. These cuts could lead to a decline in the number of patents filed, new businesses created, and overall productivity gains, ultimately impacting GDP.  The article highlights that research and development are crucial drivers of economic prosperity, and cutting funding could have lasting negative consequences for the nation's competitiveness and future economic prospects. Additionally, the cuts could discourage young people from pursuing careers in science and technology, further exacerbating the problem.  Some economists argue that private sector investment will not fully compensate for the loss of federal funding, particularly in areas of basic research where the potential payoff is uncertain but potentially transformative. The article emphasizes the importance of sustained federal investment in research for long-term economic health and innovation."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Arrests made after protesters occupy Columbia University library\n\nSummary: Following a protest at Columbia University's Butler Library, around 80 pro-Palestinian demonstrators were arrested. The protesters, who occupied parts of the library, were demonstrating against the university's investments in companies that allegedly support Israeli occupation.  New York City Mayor Eric Adams criticized the protest and urged parents of the demonstrators to intervene. The protest disrupted university activities, leading to confrontations with police and multiple arrests. The demonstration is part of a larger wave of pro-Palestinian activism on college campuses across the US, sparked by the recent conflict in the Middle East.  The protesters' demands include divestment from companies profiting from the conflict and greater university support for Palestinian students.  The arrests have drawn mixed reactions, with some supporting the protesters' right to free speech and others condemning their disruptive tactics.  Columbia University officials condemned the occupation and emphasized their commitment to open dialogue while upholding the safety of the campus community."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: 3 former Memphis police officers acquitted in state trial over fatal beating of Tyre Nichols\n\nSummary: Three former Memphis police officers, Emmitt Martin III, Desmond Mills Jr., and Justin Smith, were acquitted on all charges related to the fatal beating of Tyre Nichols.  Nichols, a 29-year-old Black man, died three days after a traffic stop in January 2023. The officers faced charges of second-degree murder, aggravated assault, aggravated kidnapping, official misconduct, and official oppression.  The verdict sparked outrage and disappointment from Nichols' family and supporters who called for continued pursuit of justice through federal investigations.  The case highlighted issues of police brutality and excessive force, particularly against Black individuals.  The rapid release of body camera footage and swift legal action against the officers were noted as departures from typical responses to such incidents. While these acquittals conclude the state's case against these three officers, other officers still face charges, and a federal civil rights investigation is ongoing.  The city of Memphis and the nation continue to grapple with the implications of this case and its impact on police reform efforts.  The verdict underscores the complexities of prosecuting police misconduct cases."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: From Trump whisperer to West Wing pariah: What went wrong for lobbyist Brian Ballard - Politico\n\nSummary: The article details the downfall of Brian Ballard, a once highly influential lobbyist with close ties to former President Donald Trump. Ballard enjoyed significant access to the Trump administration, leveraging his connections to secure lucrative contracts for his clients. However, his influence waned after Trump's departure from office.  The article explores potential reasons for Ballard's diminished standing, including his association with controversial figures and changing political landscapes. It highlights the shift in power dynamics in Washington and how Ballard's lobbying strategies, once highly effective, may no longer resonate in the current political climate. The piece likely examines specific instances where Ballard's influence faltered and the reactions from both his allies and rivals. It also likely delves into Ballard's current endeavors and whether he can regain his former prominence in the lobbying world.  Finally, the article provides a broader perspective on the nature of political influence and its ephemeral nature, particularly in Washington D.C."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: He Faced a Possible Prison Term for Assault. Instead, He Was Deported.\n\nSummary: The article discusses the case of a man who, facing potential prison time for assault, was instead deported. This highlights the complex intersection of immigration law and criminal justice.  Often, immigrants convicted of crimes, even minor ones, face deportation. This practice separates families and raises questions about fairness and due process. The article likely delves into the specifics of the man's case, the arguments for and against deportation in such situations, and the broader implications for immigrant communities. It may also explore potential legal challenges to deportation practices and the impact on individuals caught in the system. The human cost of deportation, both for the individual and their family, is likely a central theme. Finally, the article might examine the differing perspectives on this issue, including those of law enforcement, immigrant advocates, and legal experts."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Germany, Europe mark 80 years since end of World War II\n\nSummary: I do not have enough information to do that. I'm a large language model, able to communicate in response to a wide range of prompts and questions, but my knowledge about that specific article is limited. Is there anything else I can do to help?"
+        }
+      },
+      {
+        "json": {
+          "text": "Title: A First-Person View of a Deadly Gaza Strike, and a Severe U.S. Flu Season\n\nSummary: This New York Times article presents a dual narrative. Firstly, it offers a firsthand account of a deadly Israeli airstrike in Gaza, likely providing a harrowing perspective on the conflict's impact on civilians.  Secondly, it addresses the severe flu season gripping the United States. The juxtaposition of these two distinct crises highlights the stark realities of suffering and loss in different parts of the world.  The article likely delves into the details of the Gaza strike, potentially exploring the human cost of the conflict and the challenges faced by those caught in the crossfire. Simultaneously, it likely examines the severity of the flu season in the US, discussing its widespread impact, the strain on healthcare systems, and potential preventative measures.  By presenting these two narratives side-by-side, the article may aim to underscore the universality of human vulnerability in the face of crises, whether caused by conflict or disease. The first-person account from Gaza adds a deeply personal and emotional dimension to the coverage of the conflict."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Russia’s Military Show of Strength Masks Economic and Diplomatic Cracks\n\nSummary: Russia's Victory Day parade, a display of military might, overshadows the country's underlying economic and diplomatic struggles. The war in Ukraine has exposed weaknesses in Russia's military capabilities and led to significant economic sanctions, impacting its global standing. Despite the Kremlin's narrative of strength, the conflict has strained Russia's relationships with many nations, diminishing its diplomatic influence.  The article likely contrasts the pomp and circumstance of the parade with the realities of a protracted war, highlighting the economic toll and the isolation Russia faces on the world stage. It probably touches upon how the war has revealed limitations in Russia's military strength and technological advancements, contrasting it with the image projected by the parade. The parade itself may be analyzed as a tool for domestic propaganda, aiming to bolster national pride and deflect attention from the less favorable realities of the conflict. Finally, the piece might explore the long-term implications of the war on Russia's economy and its position in global affairs."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Documentary Identifies Israeli Soldier as Shooter of Palestinian American Journalist\n\nSummary: A new documentary alleges to have identified the Israeli soldier responsible for the death of Palestinian-American journalist Shireen Abu Akleh. The film reportedly uses advanced audio analysis of gunfire recordings, alongside eyewitness accounts and video footage, to pinpoint the specific soldier who fired the fatal shot.  While previous investigations concluded that Israeli fire likely killed Abu Akleh, they stopped short of definitively assigning blame to a single individual.  This documentary claims to provide conclusive evidence, directly implicating a member of an elite Israeli sniper unit. The findings are likely to reignite controversy and debate surrounding the circumstances of Abu Akleh's death, which occurred while she was covering an Israeli military raid in the West Bank. Israel has maintained that it was impossible to determine the source of the fire with certainty and disputed previous findings that pointed toward an Israeli soldier. This documentary's claims will likely face scrutiny from various parties involved in the ongoing investigation.  The identification of the alleged shooter adds a new dimension to the case and potentially strengthens calls for accountability."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Toyota Says Tariffs Will Erase $1.3 Billion in Profits in Just 2 Months\n\nSummary: Toyota, the world's largest automaker, announced that new tariffs imposed by the Trump administration will significantly impact its profits, with an estimated $1.3 billion loss in just two months. This represents a 21% decline in profit. The tariffs primarily target imported steel and aluminum, increasing production costs for automakers. Toyota expressed concerns about the escalating trade war and its potential to harm the global auto industry. The company anticipates the tariffs will necessitate price increases for consumers and potentially lead to job losses.  While Toyota is implementing cost-cutting measures, the tariffs' impact is substantial and unavoidable in the short term. This announcement underscores the broader economic consequences of trade disputes and protectionist policies. Toyota's stock price fell in response to the news, reflecting investor concern.  The company remains committed to its long-term strategy but acknowledges the challenging environment created by the current trade landscape."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: CNBC Daily Open: The Fed sounds the alarm on stagflation — it'll probably fall on deaf ears\n\nSummary: The Federal Reserve, led by Jerome Powell, is increasingly concerned about the threat of stagflation - a combination of slow economic growth and high inflation. This concern stems from trade tensions and rising oil prices. However, the Fed's warnings might be ignored by the Trump administration, which continues to push for interest rate cuts to stimulate the economy. This disagreement highlights the tension between the Fed's mandate for price stability and the administration's desire for faster growth. Historically, stagflation has been difficult to combat, requiring a delicate balance of monetary and fiscal policies. The article suggests that the current political climate, with its emphasis on short-term gains, might make it even harder to address this economic challenge effectively. The Fed's ability to act independently is crucial in this situation, but it faces pressure from the White House. The market reaction to the Fed's statements will be a key indicator of investor confidence in its ability to manage the situation."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Nintendo Gives Conservative Switch 2 Sales Outlook of 15 Million\n\nSummary: Nintendo projects sales of 15 million units for its next-generation Switch console (often referred to as Switch 2) by next spring. This conservative estimate reflects potential challenges like ongoing component shortages and economic uncertainties.  Despite being lower than some analyst predictions, 15 million units would still represent a significant number of sales. The company also anticipates a 13% rise in profit this year. This sales forecast comes as Nintendo prepares for the launch of the new console, though an official release date and price haven't been announced yet.  The success of the Switch 2 is crucial for Nintendo, as the current Switch console is showing signs of aging. The projected sales figures suggest a cautious but optimistic outlook from Nintendo for its next console generation.  This conservative estimate may also be a strategic move to avoid setting expectations too high."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Jobless claims fall in latest week, with no sign of recession or layoffs\n\nSummary:  The number of Americans filing for unemployment benefits unexpectedly fell last week, indicating a still-tight labor market with no immediate signs of recession or widespread layoffs. Initial jobless claims decreased by 16,000 to a seasonally adjusted 228,000, defying economists' forecasts of a slight increase. This positive data suggests that businesses remain confident in the economy's health and are reluctant to reduce their workforce, despite concerns about potential trade wars and economic slowdowns.  The four-week average of claims, a less volatile measure, also fell slightly. Continuing claims, which reflect the number of people already receiving benefits, ticked up but remained near historic lows.  Overall, the report paints a picture of a resilient labor market that continues to support economic growth. While uncertainties persist, the current data does not point to an imminent recession. The low level of layoffs indicates sustained demand for labor, bolstering consumer confidence and spending.  This trend contrasts with some recessionary fears fueled by recent economic indicators."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Lenovo’s flagship gaming laptop has a 2D / 3D screen and carbon fiber lid\n\nSummary: Lenovo has unveiled its new flagship gaming laptop, the Legion 9i, featuring a unique 18-inch screen capable of switching between 2D and 3D modes without requiring glasses. This 3D functionality is achieved through a lenticular lens and eye-tracking technology. Besides the innovative display, the Legion 9i boasts a sleek carbon fiber lid, making it the world's first 16-inch gaming laptop with such a design. Under the hood, it packs top-tier specifications, including Intel's latest Core i9-13980HX processor and Nvidia's GeForce RTX 4090 graphics card. To manage the heat generated by these powerful components, Lenovo has implemented a sophisticated cooling system with liquid metal and vapor chamber technology. The Legion 9i also comes equipped with a 99.99Wh battery, the largest legally allowed on an airplane.  It will be available in October starting at $4,499.  Lenovo aims to cater to both gamers and content creators with this high-performance machine. While the 3D functionality might be a niche feature, the Legion 9i's overall specs and design position it as a premium gaming laptop."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Google Maps for iPhone can now scan your screenshots to save places\n\nSummary: Google Maps for iPhone now has the ability to scan screenshots and identify places within them, allowing users to easily save locations for future reference. This new feature utilizes AI to analyze images and extract relevant information such as business names, addresses, and other details. Users can then seamlessly add these saved places to their Google Maps lists or start navigation. This eliminates the need to manually search for locations depicted in screenshots, streamlining the process of planning trips or revisiting interesting spots discovered online.  The feature is especially useful for travel planning, allowing users to quickly gather and organize locations from various sources like travel blogs or social media. This update highlights Google's continued efforts to integrate AI and enhance user experience within its mapping service, making it more intuitive and efficient for both everyday use and travel planning.  The feature is currently rolling out to iPhone users, with Android availability expected to follow."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Samsung is hosting a virtual Unpacked event on May 12 at 8PM ET\n\nSummary: Samsung has announced a virtual Unpacked event scheduled for May 12th at 8 PM ET. While the company hasn't officially revealed what will be unveiled, rumors strongly suggest the Galaxy S25 lineup will be the focus. Leaks and reports point to the S25 and S25 Edge featuring significant camera improvements, potentially reaching \"Ultra\" level quality. There's speculation about a free pre-order deal associated with the new phones.  The S25 Edge is anticipated to have a super-slim design.  Samsung's global newsroom hints at \"unprecedented innovation\" with the S25 Edge. The event will likely be livestreamed, allowing viewers worldwide to watch the unveiling of Samsung's latest offerings.  The Verge confirms the launch date for the Galaxy S25 Edge.  CNET encourages viewers to tune in to witness the unveiling of the \"super-slim\" Galaxy S25 Edge."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Cloudflare CEO: AI is killing the business model of the web - Search Engine Land\n\nSummary: Cloudflare CEO Matthew Prince argues that large language models (LLMs) are training on content scraped from the web without adequately compensating the original creators. This \"free lunch\" approach, where AI companies profit from others' content without sharing revenue, threatens the economic viability of websites and content creators.  Prince suggests a potential solution: a \"tax\" or licensing fee that AI companies would pay to website owners for using their data. This revenue sharing could help sustain the open web and incentivize the creation of high-quality content. The current model, he warns, could lead to a decline in content quality and diversity if websites can no longer afford to operate.  He draws a parallel to the music industry's struggles with Napster and highlights the need for a sustainable solution for the web's future in the age of AI.  Prince also expresses concern over the concentration of AI development in the hands of a few powerful tech companies. He advocates for a more decentralized approach to ensure a fairer and more innovative AI landscape."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Smokey Robinson denies 'ugly' sexual assault allegations\n\nSummary: Legendary singer Smokey Robinson is facing accusations of sexual assault from multiple women.  Robinson vehemently denies the allegations, calling them \"vile\" and \"false.\" His attorney released a statement emphasizing the claims' lack of credibility and the singer's intent to defend himself vigorously.  The accusations reportedly stem from incidents alleged to have occurred decades ago. Specific details of the allegations have not been publicly disclosed. Robinson, known for his iconic contributions to Motown and American music, maintains his innocence.  He expressed confidence that the truth will prevail and that his reputation will be cleared.  The accusations have shocked fans and the music industry, creating a significant controversy surrounding the beloved singer.  The legal process will likely unfold as both sides present their cases."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Man Who Crashed Through Gate of Jennifer Aniston’s Bel-Air Home Charged With Stalking, Vandalism\n\nSummary: A man who crashed his car through the gate of Jennifer Aniston's Bel-Air home has been charged with felony stalking and vandalism. The suspect, identified as Richard McGuire of Mississippi, was armed with a sharp object when he was apprehended on Aniston's property.  Police were alerted by Aniston's security team after McGuire crashed through the gate. Upon arrival, officers found McGuire and took him into custody.  Aniston was not home at the time of the incident. McGuire reportedly told police he was there to marry the actress. The incident highlights the vulnerability of celebrities to unwanted attention and potential threats.  The charges against McGuire could result in significant prison time if he is convicted.  The incident underscores the importance of security measures for high-profile individuals."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Kennedy Center Director Slams ‘Les Misérables’ Actors as ‘Vapid and Intolerant’ for Threatening Boycott of Trump Performance: ‘Will No Longer Fund Intolerance’\n\nSummary: The Kennedy Center Director criticized actors from \"Les Misérables\" who threatened to boycott a performance attended by President Trump, calling them \"vapid and intolerant.\" The director stated that the Kennedy Center would no longer tolerate such behavior and would withdraw funding from productions associated with these actors. The controversy arose due to Trump's planned attendance at a Kennedy Center fundraiser, with some cast members expressing their disapproval of his policies and rhetoric. The director defended the Kennedy Center's decision to host the event, emphasizing its non-partisan nature and commitment to the arts.  This stance sparked a debate about the role of artists in political protest and the responsibility of cultural institutions to remain neutral. The director's strong rebuke highlights the tension between artistic expression and political division in the current climate. The incident also underscores the challenges faced by arts organizations in navigating politically charged situations while maintaining their core mission.  The director's comments drew both support and criticism, further fueling the ongoing debate."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Liam Payne Left a $32.3 Million Estate and No Will, Reports Say\n\nSummary: Former One Direction member Liam Payne died without a will, leaving behind a $32.3 million estate.  Reports indicate that his ex-girlfriend and mother of his child, Cheryl Cole, has been named administrator of his estate.  Because Payne did not have a will, intestacy laws will determine how his assets are distributed.  His estate is estimated to be around £24 million according to UK sources.  It is likely that a significant portion will go to his son, Bear, whom he shared with Cole. The situation highlights the importance of estate planning, especially for individuals with substantial assets. Without a will, the distribution of assets is determined by legal defaults, which may not align with the deceased's wishes. Payne's death was unexpected, further emphasizing the need for planning regardless of age."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Thunder Set NBA Playoff Record for Points in One Half Against Nuggets\n\nSummary: The Oklahoma City Thunder set a new NBA playoff record for most points scored in a half, amassing 87 points against the Denver Nuggets in the first half of Game 2.  This offensive explosion propelled them to a dominant victory, evening the series at 1-1. Shai Gilgeous-Alexander led the Thunder's scoring onslaught, finding his rhythm and showcasing his offensive prowess. The Thunder's relentless attack and efficient shooting overwhelmed the Nuggets, who struggled to contain their opponents. This historic first half performance demonstrated the Thunder's offensive capabilities and their determination to compete in the playoffs.  The Nuggets appeared desperate in their efforts to keep up, but the deficit proved insurmountable. This win signifies a crucial turning point in the series, shifting momentum in favor of the Thunder.  OKC's record-setting performance highlighted their potential to be a formidable force in the postseason."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Analyzing the pros and cons of George Pickens joining the Cowboys\n\nSummary: This article discusses the potential trade of wide receiver George Pickens to the Dallas Cowboys. It analyzes the potential benefits and drawbacks of such a move. For the Cowboys, acquiring Pickens would provide a talented, young receiver with big-play potential to bolster their offense. However, concerns exist regarding Pickens' maturity and past behavioral issues.  For the Steelers, trading Pickens might offer salary cap relief and draft capital but would mean losing a promising offensive weapon. The article likely delves into Pickens' on-field performance, highlighting his strengths as a deep threat and contested-catch receiver while also acknowledging his inconsistencies.  It likely also explores how Pickens would fit into the Cowboys' offensive scheme and whether his personality would mesh with the team's culture. Finally, the article probably weighs the overall impact of the potential trade on both the Cowboys and the Steelers.  This analysis aims to provide a comprehensive overview of the complexities involved in this hypothetical trade scenario."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: ‘Inexcusable’: Boston Celtics squander another 20-point lead as New York Knicks take commanding 2-0 series lead\n\nSummary: The Boston Celtics, despite having a significant 20-point lead, lost Game 2 against the New York Knicks, giving the Knicks a commanding 2-0 lead in the playoff series. This marks the second time in the series that the Celtics have lost after having such a substantial lead. The loss is being described as \"inexcusable\" due to the Celtics' inability to maintain their advantage. The Knicks' resilience and ability to mount comebacks have put the Celtics in a precarious position.  This unexpected turn of events has many questioning the Celtics' ability to recover and advance in the playoffs. The pressure is now heavily on the Celtics to win the next two games to avoid elimination. The Knicks' strong performance suggests a potential upset in the series.  Game 3 will be crucial for the Celtics to regain momentum and stay alive in the playoffs. This collapse raises questions about the Celtics' mental toughness and ability to perform under pressure."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Report: Nick Saban is expected to be named co-chair of presidential college sports commission\n\nSummary: According to NBC Sports, Alabama football coach Nick Saban is anticipated to be appointed co-chair of a presidential commission focused on college sports.  The commission, formed by President Trump, aims to address various challenges facing the industry. While specific details about the commission's scope remain limited, it is expected to tackle issues such as Name, Image, and Likeness (NIL) rules for college athletes, potentially through executive order. Saban's involvement suggests a focus on athlete compensation and payment regulations within college sports.  The commission's formation has sparked debate, with some arguing against presidential interference in college athletics. This report indicates Saban's significant influence and a potential shift in how college athlete compensation is handled. The commission's other co-chair and members have not yet been disclosed. Further details about the commission's agenda and planned actions are expected to emerge soon."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: NASA Mars satellite uncovers markings 'like paint dripping down a wall' on Martian surface\n\nSummary: A NASA Mars satellite, the Mars Reconnaissance Orbiter (MRO), has captured images of unusual dark markings on the Martian surface that resemble paint dripping down a wall. These intriguing patterns are located within impact craters in the Valles Marineris region of Mars, a massive canyon system. Scientists believe the markings are likely related to recurring slope lineae (RSL), dark streaks that appear seasonally on Martian slopes. RSL are thought to be caused by the flow of briny water, though definitive proof remains elusive.  The dripping patterns might be formed by the interaction of this salty water with the Martian soil and dust, potentially through a process of freezing and thawing.  The MRO's HiRISE camera captured the detailed images, highlighting the unique texture and flow-like appearance of the markings.  Further study of these formations could provide valuable insights into the presence of water on Mars and its potential role in shaping the planet's landscape. The specific mechanism behind the \"dripping\" appearance is still under investigation, but it adds to the growing evidence of Mars' complex geological history and the possibility of past or present microbial life.  The discovery underscores the continued importance of Mars exploration and the search for evidence of water beyond Earth."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: We've Only Glimpsed 0.001% of Earth's Deep Seafloor, Study Reveals\n\nSummary: A new study highlights how little we know about the Earth's deep seafloor, with only 0.001% having been explored. This vast, unexplored area, deeper than 200 meters, is larger than the combined area of Mars and Pluto. Researchers used sonar data from ships and underwater robots to create a new map of the seafloor with higher resolution than previous maps based on satellite data. This improved mapping revealed previously unknown seamounts and deep ocean trenches.  The deep seafloor plays a crucial role in regulating the Earth's climate and harbors a vast, largely unknown biodiversity. Further exploration is vital to understand these ecosystems and the impact of human activities, like deep-sea mining.  Scientists are calling for more investment in deep-sea exploration technologies to accelerate the pace of discovery and understand this crucial environment. The limited exploration underscores the vastness of the ocean's depths and the mysteries that remain.  This lack of knowledge hinders our ability to fully comprehend and protect this crucial ecosystem."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: NASA scrambles to cut ISS activity due to budget issues\n\nSummary: NASA is facing significant budget constraints proposed in the Trump administration's 2026 budget, forcing the agency to reduce activity on the International Space Station (ISS). The proposed budget cuts deeply into NASA's overall funding, specifically targeting areas like the Artemis program and the development of a lunar space station. This has led to concerns about the future of human spaceflight and exploration. The cuts would also impact NASA's partnerships with international space agencies like ESA, potentially jeopardizing collaborative projects.  The Planetary Society has strongly condemned the proposed cuts, highlighting their damaging impact on scientific advancement and space exploration. In response, NASA is looking at ways to cut costs on the ISS, potentially by reducing the number of crew members or relying more on commercial partners for certain operations.  This scramble to reduce ISS activity underscores the challenges posed by the proposed budget cuts and their potential to hinder NASA's long-term goals.  The budget also favors increased spending for defense, with companies like SpaceX potentially benefiting."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Kosmos 482: Soviet spacecraft will likely fall to Earth this week\n\nSummary: A Soviet-era spacecraft, Kosmos 482, launched in 1972 with the intention of landing on Venus, is expected to re-enter Earth's atmosphere this week.  The mission failed when the spacecraft became stuck in Earth's orbit after its intended Venus-bound rocket failed to ignite. For nearly 53 years, it has remained in orbit. While much of the spacecraft will likely burn up upon re-entry, some durable components, potentially including a landing capsule designed to withstand the harsh Venusian atmosphere, could survive and crash to Earth. The exact time and location of the re-entry are uncertain, but experts predict it will occur sometime between Tuesday and Thursday. The surviving debris poses a small but real risk to populated areas, though the vast majority of Earth's surface is covered by ocean. This event is not unique; defunct spacecraft and space debris regularly fall back to Earth. However, the robust construction of Kosmos 482, specifically its Venus lander, makes this re-entry more noteworthy due to the potential for larger pieces of debris to reach the ground."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Cancer-causing chemicals are in many beauty products women use, a study finds\n\nSummary: A new study published in Environmental Health Perspectives reveals that many popular beauty products marketed to women of color contain high levels of chemicals linked to cancer and other health problems. Researchers tested over 100 products, including hair relaxers, leave-in conditioners, and root stimulators, and found that many contained hormone-disrupting chemicals like parabens and phthalates, as well as formaldehyde, a known carcinogen.  Products marketed to Black women were found to have significantly higher levels of these harmful chemicals.  The study highlights the disproportionate exposure to toxic chemicals faced by women of color due to beauty product use. This exposure may contribute to higher rates of certain cancers and other health disparities in these communities. The researchers emphasize the need for stricter regulation of the beauty industry to protect consumers from harmful chemicals. They also encourage consumers to be aware of the ingredients in their beauty products and choose safer alternatives. The study's findings underscore the environmental injustice faced by marginalized communities and the urgent need for greater health equity."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Ultraprocessed foods linked to early symptoms of Parkinson’s\n\nSummary: This article reports on a study linking consumption of ultraprocessed foods to an increased risk of early Parkinson's disease symptoms. Ultraprocessed foods, which undergo significant industrial processing and often contain high levels of added sugars, fats, and artificial ingredients, were found to be associated with a higher likelihood of experiencing symptoms like tremors, stiffness, and slow movement.  The research suggests a potential dietary connection to the development of this neurodegenerative disorder. While the exact mechanisms behind this association remain unclear, the findings emphasize the importance of a healthy diet in potentially mitigating Parkinson's risk. Further research is needed to confirm these findings and explore the underlying causes of this correlation. The study highlights growing concerns about the potential negative health impacts of consuming large quantities of ultraprocessed foods. Limiting intake of these foods may be a prudent preventative measure for neurological health.  The Seattle Times reported on this study, emphasizing its potential implications for public health."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Flu killed 216 children nationwide this season, the highest toll in years\n\nSummary: The 2022-2023 flu season was particularly severe for children, with 216 pediatric deaths nationwide, the highest number in recent years. This surpasses the previous high of 198 deaths during the 2017-2018 season.  The CDC emphasizes that this number likely underestimates the true toll due to reporting variations. While this season's pediatric flu mortality rate is still below the record high set before the widespread use of the flu vaccine, experts are concerned by the significant increase. They highlight the importance of annual flu vaccination for everyone six months and older.  Flu symptoms in children can range from mild to severe, and parents should seek medical attention if their child experiences difficulty breathing, bluish skin color, or other warning signs.  The severity of the season underscores the need for continued public health measures and emphasizes the flu's potential impact, especially on vulnerable populations like children."
+        }
+      },
+      {
+        "json": {
+          "text": "Title: Why it feels like allergy season is getting longer, more severe\n\nSummary: Allergy season is starting earlier and lasting longer due to climate change. Rising temperatures and increased carbon dioxide levels lead to longer growing seasons for plants, resulting in higher pollen production.  Urban areas experience intensified allergy symptoms due to the \"urban heat island effect\" and air pollution trapping pollen.  Climate change also influences the geographic distribution of allergenic plants, like ragweed.  Longer exposure to pollen increases sensitization and symptom severity. Allergists recommend starting medication early, monitoring pollen counts, and creating a low-pollen environment at home.  They also suggest seeking professional help for severe symptoms.  While some adaptation to longer allergy seasons is possible, addressing climate change is crucial for long-term relief."
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "20f2ba01-0f95-40e0-84c1-079ff201a7b8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "723e17f17e831d1b3c89ade7dc566edc429856f391d2f068f560e3f93bedc91f"
+  },
+  "id": "HoA2P6brQcKhgsKE",
+  "tags": []
+}
