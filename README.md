@@ -64,8 +64,3 @@ Each row in your Google Sheet will look like this:
 | Trump announces trade deal... | President Trump has announced a trade deal with the United Kingdom... |
 
 ---
-
-## 🤖 AI Prompt Template
-
-Used in the LLM chain:
-
